@@ -8,6 +8,7 @@ import { useNavigate } from "react-router";
 import { CyberPiratesBackground } from "@/components/CyberPiratesBackground";
 import MagneticButton from "@/components/MagneticButton";
 import { motion } from "framer-motion";
+import { Session as AppSession } from "@contracts/constants";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,7 +29,10 @@ export default function Login() {
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) { setError(signInError.message); setLoading(false); }
-      else if (data?.session) { window.location.href = "/dashboard"; }
+      else if (data?.session) {
+        document.cookie = `${AppSession.cookieName}=${data.session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax`;
+        window.location.href = "/dashboard";
+      }
       else { setError("Unable to initialize session."); setLoading(false); }
     } catch (err: any) {
       setError(err?.message || "An unexpected error occurred."); setLoading(false);
@@ -38,7 +42,7 @@ export default function Login() {
   const handleGithubLogin = async () => {
     setLoading(true); setError("");
     try {
-      const { error: oAuthError } = await supabase.auth.signInWithOAuth({ provider: "github", options: { redirectTo: window.location.origin } });
+      const { error: oAuthError } = await supabase.auth.signInWithOAuth({ provider: "github", options: { redirectTo: window.location.origin + "/dashboard" } });
       if (oAuthError) { setError(oAuthError.message); setLoading(false); }
     } catch (err: any) { setError(err?.message || "Error."); setLoading(false); }
   };
@@ -46,7 +50,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setLoading(true); setError("");
     try {
-      const { error: oAuthError } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+      const { error: oAuthError } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin + "/dashboard" } });
       if (oAuthError) { setError(oAuthError.message); setLoading(false); }
     } catch (err: any) { setError(err?.message || "Error."); setLoading(false); }
   };
