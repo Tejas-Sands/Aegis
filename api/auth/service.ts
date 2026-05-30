@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import * as cookie from "cookie";
 import ws from "ws";
-import { findUserByUnionId, upsertUser } from "../queries/users";
+import { findUserByUnionId, upsertUser } from "../_queries/users";
 import { Errors } from "../../contracts/errors";
 import { Session } from "../../contracts/constants";
 

@@ -4,7 +4,7 @@ import {
   findAllDataSources,
   updateDataSourceStatus,
   seedDataSources,
-} from "./queries/dataSources";
+} from "./_queries/dataSources";
 
 export const dataSourceRouter = createRouter({
   list: publicQuery.query(async () => {

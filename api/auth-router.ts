@@ -1,5 +1,5 @@
 import { createRouter, authedQuery } from "./middleware";
-import { getAllUsers } from "./queries/users";
+import { getAllUsers } from "./_queries/users";
 
 export const authRouter = createRouter({
   me: authedQuery.query((opts) => opts.ctx.user),

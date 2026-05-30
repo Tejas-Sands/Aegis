@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
-import { findRecentActivities, createActivityLog } from "./queries/activity";
+import { findRecentActivities, createActivityLog } from "./_queries/activity";
 
 export const activityRouter = createRouter({
   recent: publicQuery

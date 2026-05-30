@@ -6,9 +6,9 @@ import {
   createIncident,
   updateIncidentStatus,
   getIncidentStats,
-} from "./queries/incidents";
-import { createActivityLog } from "./queries/activity";
-import { seedDataSources } from "./queries/dataSources";
+} from "./_queries/incidents";
+import { createActivityLog } from "./_queries/activity";
+import { seedDataSources } from "./_queries/dataSources";
 import { generateMockIncidents } from "./lib/mockData";
 
 export const incidentRouter = createRouter({

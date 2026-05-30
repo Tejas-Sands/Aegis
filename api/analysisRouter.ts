@@ -4,8 +4,8 @@ import {
   findAnalysisByIncidentId,
   createAnalysis,
   findIncidentById,
-} from "./queries/incidents";
-import { createActivityLog } from "./queries/activity";
+} from "./_queries/incidents";
+import { createActivityLog } from "./_queries/activity";
 import { analyzeIncidentWithAI } from "./lib/ai";
 import { generateCorrelatedData } from "./lib/mockData";
 

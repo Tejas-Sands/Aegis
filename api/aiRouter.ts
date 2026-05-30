@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { generateSQLFromNL, askAIQuestion } from "./lib/ai";
 import { executeCoralQuery, isCoralInstalled } from "./lib/coral";
-import { createActivityLog } from "./queries/activity";
+import { createActivityLog } from "./_queries/activity";
 
 export const aiRouter = createRouter({
   generateQuery: publicQuery
