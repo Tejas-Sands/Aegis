@@ -39517,7 +39517,10 @@ function getDb() {
       throw new Error("DATABASE_URL not configured - using in-memory storage");
     }
     try {
-      const client = src_default(dbUrl, { prepare: false });
+      const client = src_default(dbUrl, {
+        prepare: false,
+        connect_timeout: 3
+      });
       instance = drizzle(client, { schema: fullSchema });
       setDbAvailable(true);
     } catch (e2) {

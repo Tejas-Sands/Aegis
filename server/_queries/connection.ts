@@ -18,7 +18,10 @@ export function getDb() {
     }
     try {
       // Disable prefetch as it is not supported for "Transaction" pool mode in Supabase
-      const client = postgres(dbUrl, { prepare: false });
+      const client = postgres(dbUrl, { 
+        prepare: false,
+        connect_timeout: 3
+      });
       instance = drizzle(client, { schema: fullSchema });
       setDbAvailable(true);
     } catch (e) {
