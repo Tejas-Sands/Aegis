@@ -56053,9 +56053,138 @@ import path from "path";
 import fs3 from "fs";
 var execAsync = promisify(exec);
 var localCoralPath = path.join(process.cwd(), "bin", "coral");
-if (process.env.VERCEL) {
-  process.env.CORAL_CONFIG_DIR = "/tmp/coral-config";
-}
+process.env.CORAL_CONFIG_DIR = "/tmp/coral-config";
+var DATA_ROOT = "/tmp/coral-data";
+var SOURCES_ROOT = "/tmp/coral-sources";
+var YAML_TEMPLATES = {
+  github: `
+name: github
+version: 0.1.0
+dsl_version: 3
+backend: file
+tables:
+  - name: commits
+    description: GitHub Commits
+    format: jsonl
+    source:
+      location: file:///tmp/coral-data/github/
+      glob: "*.jsonl"
+    columns:
+      - name: hash
+        type: Utf8
+      - name: author
+        type: Utf8
+      - name: message
+        type: Utf8
+      - name: timestamp
+        type: Utf8
+`,
+  sentry: `
+name: sentry
+version: 0.1.0
+dsl_version: 3
+backend: file
+tables:
+  - name: issues
+    description: Sentry Exception Issues
+    format: jsonl
+    source:
+      location: file:///tmp/coral-data/sentry/
+      glob: "*.jsonl"
+    columns:
+      - name: error_type
+        type: Utf8
+      - name: count
+        type: Int64
+      - name: first_seen
+        type: Utf8
+      - name: level
+        type: Utf8
+`,
+  datadog: `
+name: datadog
+version: 0.1.0
+dsl_version: 3
+backend: file
+tables:
+  - name: metrics
+    description: Datadog Telemetry Metrics
+    format: jsonl
+    source:
+      location: file:///tmp/coral-data/datadog/
+      glob: "*.jsonl"
+    columns:
+      - name: metric_name
+        type: Utf8
+      - name: value
+        type: Float64
+      - name: host
+        type: Utf8
+      - name: timestamp
+        type: Utf8
+`,
+  pagerduty: `
+name: pagerduty
+version: 0.1.0
+dsl_version: 3
+backend: file
+tables:
+  - name: incidents
+    description: PagerDuty Incidents
+    format: jsonl
+    source:
+      location: file:///tmp/coral-data/pagerduty/
+      glob: "*.jsonl"
+    columns:
+      - name: id
+        type: Int64
+      - name: title
+        type: Utf8
+      - name: service
+        type: Utf8
+      - name: urgency
+        type: Utf8
+      - name: status
+        type: Utf8
+      - name: created_at
+        type: Utf8
+`,
+  slack: `
+name: slack
+version: 0.1.0
+dsl_version: 3
+backend: file
+tables:
+  - name: messages
+    description: Slack Messages
+    format: jsonl
+    source:
+      location: file:///tmp/coral-data/slack/
+      glob: "*.jsonl"
+    columns:
+      - name: user
+        type: Utf8
+      - name: text
+        type: Utf8
+      - name: channel
+        type: Utf8
+      - name: timestamp
+        type: Utf8
+`
+};
+var JSONL_DATA = {
+  github: `{"hash":"8bf9c2a","author":"johndoe","message":"fix: resolve memory leak in session handler","timestamp":"2026-05-29T18:12:00Z"}
+{"hash":"2c7a10d","author":"johndoe","message":"feat: add oauth sign-in flow","timestamp":"2026-05-29T16:45:00Z"}
+{"hash":"4a2b91c","author":"dev_agent","message":"chore: update environment configurations","timestamp":"2026-05-29T15:20:00Z"}`,
+  sentry: `{"error_type":"NullPointerException","count":47,"first_seen":"2026-05-29T22:10:00Z","level":"error"}
+{"error_type":"DatabaseTimeoutException","count":12,"first_seen":"2026-05-29T22:15:00Z","level":"fatal"}`,
+  datadog: `{"metric_name":"cpu_usage","value":94.5,"host":"prod-web-01","timestamp":"2026-05-29T22:30:00Z"}
+{"metric_name":"memory_utilization","value":81.2,"host":"prod-web-01","timestamp":"2026-05-29T22:30:00Z"}`,
+  pagerduty: `{"id":1,"title":"Database connection spike","service":"payment-service","urgency":"high","status":"triggered","created_at":"2026-05-29T22:15:00Z"}
+{"id":2,"title":"API Gateway 5xx threshold exceeded","service":"api-gateway","urgency":"high","status":"resolved","created_at":"2026-05-29T22:30:00Z"}`,
+  slack: `{"user":"johndoe","text":"Is anyone else seeing memory utilization alerts?","channel":"sre-alerts","timestamp":"2026-05-29T22:20:00Z"}
+{"user":"dev_agent","text":"Investigating the session handler fixes now.","channel":"sre-alerts","timestamp":"2026-05-29T22:22:00Z"}`
+};
 async function isCoralInstalled() {
   if (fs3.existsSync(localCoralPath)) {
     return true;
@@ -56077,13 +56206,35 @@ async function onboardCoralSources(coralCmd) {
     return;
   }
   console.log("[Coral Bridge] Running initial onboarding for Vercel/serverless...");
-  const sources = ["github", "sentry", "datadog", "pagerduty", "slack"];
-  for (const src of sources) {
+  if (!fs3.existsSync(DATA_ROOT)) fs3.mkdirSync(DATA_ROOT, { recursive: true });
+  if (!fs3.existsSync(SOURCES_ROOT)) fs3.mkdirSync(SOURCES_ROOT, { recursive: true });
+  const integrations = [
+    { name: "github", envKey: "GITHUB_TOKEN", tableName: "commits" },
+    { name: "sentry", envKey: "SENTRY_TOKEN", tableName: "issues" },
+    { name: "datadog", envKey: "DATADOG_API_KEY", tableName: "metrics" },
+    { name: "pagerduty", envKey: "PAGERDUTY_TOKEN", tableName: "incidents" },
+    { name: "slack", envKey: "SLACK_TOKEN", tableName: "messages" }
+  ];
+  for (const integration of integrations) {
+    const hasKey = process.env[integration.envKey] && process.env[integration.envKey].trim() !== "";
     try {
-      console.log(`[Coral Bridge] Onboarding source: ${src}`);
-      await execAsync(`${coralCmd} source add ${src}`);
+      if (hasKey) {
+        console.log(`[Coral Bridge] Key found for ${integration.name}. Onboarding live API source...`);
+        await execAsync(`${coralCmd} source add ${integration.name}`);
+      } else {
+        console.log(`[Coral Bridge] No key found for ${integration.name}. Registering local file fallback...`);
+        const dataDir = path.join(DATA_ROOT, integration.name);
+        if (!fs3.existsSync(dataDir)) {
+          fs3.mkdirSync(dataDir, { recursive: true });
+        }
+        const dataPath = path.join(dataDir, `${integration.tableName}.jsonl`);
+        fs3.writeFileSync(dataPath, JSONL_DATA[integration.name]);
+        const specPath = path.join(SOURCES_ROOT, `${integration.name}.yaml`);
+        fs3.writeFileSync(specPath, YAML_TEMPLATES[integration.name].trim());
+        await execAsync(`${coralCmd} source add --file ${specPath}`);
+      }
     } catch (e2) {
-      console.warn(`[Coral Bridge] Failed to onboard source ${src}:`, e2.message);
+      console.warn(`[Coral Bridge] Failed to onboard source ${integration.name}:`, e2.message);
     }
   }
   onboarded = true;
