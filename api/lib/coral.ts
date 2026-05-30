@@ -1,7 +1,16 @@
 import { exec } from "child_process";
 import { promisify } from "util";
+import path from "path";
+import fs from "fs";
 
 const execAsync = promisify(exec);
+
+const localCoralPath = path.join(process.cwd(), "bin", "coral");
+
+// Set config directory for Coral to write in writable /tmp when running in Vercel
+if (process.env.VERCEL) {
+  process.env.CORAL_CONFIG_DIR = "/tmp/coral-config";
+}
 
 export interface CoralResult {
   columns: string[];
@@ -9,15 +18,50 @@ export interface CoralResult {
 }
 
 /**
- * Checks if the Coral CLI is installed and available in the system PATH.
+ * Checks if the Coral CLI is installed and available in the system PATH or bundled locally.
  */
 export async function isCoralInstalled(): Promise<boolean> {
+  if (fs.existsSync(localCoralPath)) {
+    return true;
+  }
   try {
     await execAsync("which coral");
     return true;
   } catch {
     return false;
   }
+}
+
+let onboarded = false;
+
+/**
+ * Dynamically registers sources (GitHub, Sentry, Datadog, PagerDuty, Slack) inside the Coral CLI configuration
+ * using environment variables provided to the serverless runtime.
+ */
+async function onboardCoralSources(coralCmd: string): Promise<void> {
+  if (onboarded) return;
+
+  const configDir = process.env.CORAL_CONFIG_DIR || path.join(process.env.HOME || "", ".config", "coral");
+  const configPath = path.join(configDir, "config.toml");
+
+  if (fs.existsSync(configPath)) {
+    onboarded = true;
+    return;
+  }
+
+  console.log("[Coral Bridge] Running initial onboarding for Vercel/serverless...");
+  const sources = ["github", "sentry", "datadog", "pagerduty", "slack"];
+
+  for (const src of sources) {
+    try {
+      console.log(`[Coral Bridge] Onboarding source: ${src}`);
+      await execAsync(`${coralCmd} source add ${src}`);
+    } catch (e: any) {
+      console.warn(`[Coral Bridge] Failed to onboard source ${src}:`, e.message);
+    }
+  }
+
+  onboarded = true;
 }
 
 /**
@@ -42,10 +86,15 @@ export async function executeCoralQuery(sql: string): Promise<{
     };
   }
 
+  const coralCmd = fs.existsSync(localCoralPath) ? localCoralPath : "coral";
+
+  // Ensure sources are registered before executing the query
+  await onboardCoralSources(coralCmd);
+
   try {
     // Escape double quotes and execute via CLI
     const escapedSql = sql.replace(/"/g, '\\"');
-    const { stdout, stderr } = await execAsync(`coral sql "${escapedSql}" --format json`);
+    const { stdout, stderr } = await execAsync(`${coralCmd} sql "${escapedSql}" --format json`);
     
     if (stderr && !stdout) {
       return { success: false, error: stderr, isMock: false };
@@ -65,6 +114,7 @@ export async function executeCoralQuery(sql: string): Promise<{
     };
   }
 }
+
 
 /**
  * Fallback mock generator that returns realistic table rows depending on the generated query.
