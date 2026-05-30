@@ -20,7 +20,14 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 import { handle } from "hono/vercel";
 
-export default process.env.VERCEL ? handle(app) : app;
+export const GET = handle(app);
+export const POST = handle(app);
+export const OPTIONS = handle(app);
+export const PUT = handle(app);
+export const DELETE = handle(app);
+export const PATCH = handle(app);
+
+export default app;
 
 if (env.isProduction && !process.env.VERCEL) {
   const { serve } = await import("@hono/node-server");

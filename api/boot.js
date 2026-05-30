@@ -65187,7 +65187,13 @@ app.use("/api/trpc/*", async (c2) => {
   });
 });
 app.all("/api/*", (c2) => c2.json({ error: "Not Found" }, 404));
-var boot_default = process.env.VERCEL ? handle(app) : app;
+var GET = handle(app);
+var POST = handle(app);
+var OPTIONS = handle(app);
+var PUT = handle(app);
+var DELETE = handle(app);
+var PATCH = handle(app);
+var boot_default = app;
 if (env.isProduction && !process.env.VERCEL) {
   const { serve: serve2 } = await Promise.resolve().then(() => (init_dist(), dist_exports2));
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
@@ -65198,6 +65204,12 @@ if (env.isProduction && !process.env.VERCEL) {
   });
 }
 export {
+  DELETE,
+  GET,
+  OPTIONS,
+  PATCH,
+  POST,
+  PUT,
   boot_default as default
 };
 /*! Bundled license information:
