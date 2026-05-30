@@ -4,6 +4,8 @@ import Navbar from "@/components/Navbar";
 import { CyberPiratesBackground } from "@/components/CyberPiratesBackground";
 import MagneticButton from "@/components/MagneticButton";
 import { Shield, Cpu, Database, Terminal, ArrowRight, Lock } from "lucide-react";
+import { SceneWrapper } from "@/components/3d/SceneWrapper";
+import { CyberShip } from "@/components/3d/CyberShip";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -48,6 +50,18 @@ export default function About() {
             scrollTrigger: { trigger: el, start: "top 80%" }
           }
         );
+      });
+
+      // Fleet Parallax
+      gsap.to(".ship-fleet", {
+        y: -150,
+        rotationZ: -5,
+        scrollTrigger: {
+          trigger: ".architecture-section",
+          start: "top bottom",
+          end: "bottom top",
+          scrub: true,
+        },
       });
     }, containerRef);
     return () => ctx.revert();
@@ -131,8 +145,17 @@ export default function About() {
       </section>
 
       {/* Architecture */}
-      <section className="py-24 px-6 lg:px-10 max-w-6xl mx-auto">
-        <div className="text-center mb-16">
+      <section className="architecture-section relative py-24 px-6 lg:px-10 max-w-6xl mx-auto">
+        {/* 3D Cyber Ship Fleet */}
+        <div className="ship-fleet absolute left-0 top-0 w-full h-full pointer-events-none z-0 opacity-40">
+          <SceneWrapper cameraPosition={[0, 0, 8]}>
+            <CyberShip scale={0.8} position={[-2, 1, -2]} rotation={[0.2, 0.8, 0]} glowColor="#8B5CF6" />
+            <CyberShip scale={1.2} position={[1, -1, 1]} rotation={[0.1, 0.6, 0.1]} glowColor="#00FF94" />
+            <CyberShip scale={0.6} position={[2, 3, -4]} rotation={[0.3, 0.9, -0.1]} glowColor="#00D9FF" />
+          </SceneWrapper>
+        </div>
+
+        <div className="relative z-10 text-center mb-16">
           <span className="section-label block mb-3" style={{ color: "rgba(139,92,246,0.7)" }}>// FLEET ARCHITECTURE</span>
           <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 400, color: "#fff", letterSpacing: "-0.02em" }}>Arsenal Blueprint</h2>
         </div>

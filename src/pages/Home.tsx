@@ -6,6 +6,9 @@ import { CyberPiratesBackground } from "@/components/CyberPiratesBackground";
 import MagneticButton from "@/components/MagneticButton";
 import { useAuth } from "@/hooks/useAuth";
 import { TextScramble } from "@/components/TextScramble";
+import { SceneWrapper } from "@/components/3d/SceneWrapper";
+import { RoboticSkull } from "@/components/3d/RoboticSkull";
+import { CyberShip } from "@/components/3d/CyberShip";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -71,6 +74,21 @@ function HeroSection() {
         { opacity: 1, duration: 0.6 },
         "-=0.2"
       );
+
+      // 3D Skull Parallax
+      gsap.to(".skull-3d", {
+        y: 200,
+        rotationZ: 15,
+        scale: 1.2,
+        opacity: 0,
+        ease: "none",
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top top",
+          end: "bottom top",
+          scrub: true,
+        },
+      });
     }, containerRef);
     return () => ctx.revert();
   }, []);
@@ -86,6 +104,13 @@ function HeroSection() {
 
       {/* Noise */}
       <div className="absolute inset-0 noise-overlay opacity-[0.04] pointer-events-none" />
+
+      {/* 3D Robotic Skull Background */}
+      <div className="skull-3d absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-40 md:opacity-60">
+        <SceneWrapper cameraPosition={[0, 0, 8]}>
+          <RoboticSkull scale={1.8} position={[0, -0.5, -3]} />
+        </SceneWrapper>
+      </div>
 
       {/* Content */}
       <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
@@ -686,11 +711,37 @@ function HowItWorks() {
         }
       );
     });
+
+    // 3D Ship Fly-by
+    gsap.fromTo(".ship-container",
+      { x: "30vw", y: 100, rotationZ: -10, opacity: 0 },
+      {
+        x: "-10vw",
+        y: -100,
+        rotationZ: 10,
+        opacity: 0.8,
+        ease: "power2.out",
+        scrollTrigger: {
+          trigger: ".raid-protocol-section",
+          start: "top 10%",
+          end: "bottom 10%",
+          scrub: 1,
+        }
+      }
+    );
   }, []);
 
   return (
-    <section className="relative py-32" style={{ background: "#0a0a0a" }}>
-      <div className="max-w-6xl mx-auto px-6 lg:px-10">
+    <section className="raid-protocol-section relative py-32 overflow-hidden" style={{ background: "#0a0a0a" }}>
+      
+      {/* 3D Cyber Ship */}
+      <div className="ship-container absolute left-0 top-0 w-full h-screen pointer-events-none z-0">
+        <SceneWrapper cameraPosition={[0, 2, 8]}>
+          <CyberShip scale={1.5} rotation={[0.4, -0.6, 0.2]} glowColor="#00FF94" />
+        </SceneWrapper>
+      </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 lg:px-10">
         <div className="text-center mb-20">
           <span className="section-label block mb-4">THE RAID PROTOCOL</span>
           <h2 style={{ fontSize: "clamp(36px, 4vw, 52px)", fontWeight: 400, color: "#fff", letterSpacing: "-0.02em" }}>
