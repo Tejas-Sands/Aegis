@@ -30,7 +30,7 @@ export default function Login() {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) { setError(signInError.message); setLoading(false); }
       else if (data?.session) {
-        document.cookie = `${AppSession.cookieName}=${data.session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax`;
+        document.cookie = `${AppSession.cookieName}=${data.session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax; secure`;
         window.location.href = "/dashboard";
       }
       else { setError("Unable to initialize session."); setLoading(false); }

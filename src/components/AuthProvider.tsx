@@ -10,9 +10,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        document.cookie = `${AppSession.cookieName}=${session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax`;
+        document.cookie = `${AppSession.cookieName}=${session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax; secure`;
       } else {
-        document.cookie = `${AppSession.cookieName}=; path=/; max-age=0; samesite=lax`;
+        document.cookie = `${AppSession.cookieName}=; path=/; max-age=0; samesite=lax; secure`;
       }
       setSession(session);
       setLoading(false);
@@ -24,9 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       
       if (session) {
-        document.cookie = `${AppSession.cookieName}=${session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax`;
+        document.cookie = `${AppSession.cookieName}=${session.access_token}; path=/; max-age=${AppSession.maxAgeMs / 1000}; samesite=lax; secure`;
       } else {
-        document.cookie = `${AppSession.cookieName}=; path=/; max-age=0; samesite=lax`;
+        document.cookie = `${AppSession.cookieName}=; path=/; max-age=0; samesite=lax; secure`;
       }
     });
 
