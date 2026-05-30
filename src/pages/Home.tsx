@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Shield, ArrowRight, LogIn, ChevronDown } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -260,7 +260,11 @@ function ManifestoSection() {
 /* ─── WORK SHOWCASE (Horizontal Pinned Scroll) ─── */
 function WorkShowcase() {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [typedCommand, setTypedCommand] = useState("");
+  const [displayedLogs, setDisplayedLogs] = useState<string[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const animationRef = useRef<number | null>(null);
 
   const cards = [
     {
@@ -289,113 +293,338 @@ function WorkShowcase() {
     },
   ];
 
+  const consoleData = [
+    {
+      cmd: 'aegis --query "SELECT * FROM pagerduty JOIN sentry JOIN datadog LIMIT 2"',
+      logs: [
+        '[RAID] Establishing secure connections to local federated nodes...',
+        '[RAID] Querying PagerDuty incidents table (cached: 14s ago)... OK (5 rows)',
+        '[RAID] Querying Sentry issues database... OK (3 rows)',
+        '[RAID] Performing in-memory cross-source JOIN on \'service_name\'...',
+        '[DATA] Egress payload: 0 bytes. Processing duration: 32.4ms',
+        '+------------+---------------------+----------+-----------+',
+        '| SERVICE    | ERROR               | COMMIT   | SEVERITY  |',
+        '+------------+---------------------+----------+-----------+',
+        '| auth-api   | NullPointerException| 9a8d7c6b | CRITICAL  |',
+        '| web-portal | ChunkLoadError      | f2c8e1a5 | WARNING   |',
+        '+------------+---------------------+----------+-----------+',
+        '[SUCCESS] Federation complete. The Deck holds the logs.'
+      ]
+    },
+    {
+      cmd: 'aegis --analyze --culprit 9a8d7c6b --engine groq-llama-3.3',
+      logs: [
+        '[AI] Downloading raw diffs for commit 9a8d7c6b...',
+        '[AI] Found modified file: services/AuthService.java (+24, -2 lines)',
+        '[AI] Triggering Groq Llama 3.3-Preview (NVIDIA NIM Fallback Active)...',
+        '[AI] Scanning stack traces for NullPointerException...',
+        '[AI] Match found at AuthService.java:142 -> config.getTokenCache()',
+        '[AI] Reasoning: Cache config object is returned null on expiration.',
+        '[CONFIDENCE] 87.2% root cause match score.',
+        '[REVERT_TARGET] Commit 9a8d7c6b. Impact: zero-downtime rollback recommended.'
+      ]
+    },
+    {
+      cmd: 'aegis --action auto-rollback --target auth-api --confirm',
+      logs: [
+        '[OPS] Intercepting webhook target rollback deployment...',
+        '[OPS] Communicating with Kubernetes engine (Local Deck Node)...',
+        '[OPS] Rolling back Deployment auth-api: v1.4.2 -> v1.4.1 (hash: b8d7c6)',
+        '[OPS] Kubernetes rollout status: SUCCESS',
+        '[OPS] Running HTTP health probes on auth-api endpoints... OK',
+        '[SLACK] Broadcasted incident resolution alert to #war-room-deck',
+        '[RECOVERY] Incident closed. Resolution MTTR: 58.2 seconds.'
+      ]
+    }
+  ];
+
+  const startAnimation = (tabIdx: number) => {
+    if (animationRef.current) {
+      clearTimeout(animationRef.current);
+    }
+    setTypedCommand("");
+    setDisplayedLogs([]);
+    setIsTyping(true);
+
+    const fullCommand = consoleData[tabIdx].cmd;
+    let charIndex = 0;
+    let currentCmd = "";
+
+    const typeCommand = () => {
+      if (charIndex < fullCommand.length) {
+        currentCmd += fullCommand[charIndex];
+        setTypedCommand(currentCmd);
+        charIndex++;
+        animationRef.current = window.setTimeout(typeCommand, 25);
+      } else {
+        setIsTyping(false);
+        let logIndex = 0;
+        const logs = consoleData[tabIdx].logs;
+
+        const printLogs = () => {
+          if (logIndex < logs.length) {
+            const currentLine = logs[logIndex];
+            setDisplayedLogs((prev) => [...prev, currentLine]);
+            logIndex++;
+            animationRef.current = window.setTimeout(printLogs, 120);
+          }
+        };
+        animationRef.current = window.setTimeout(printLogs, 200);
+      }
+    };
+
+    animationRef.current = window.setTimeout(typeCommand, 100);
+  };
+
   useEffect(() => {
-    if (!sectionRef.current || !trackRef.current) return;
+    startAnimation(activeTab);
+    return () => {
+      if (animationRef.current) {
+        clearTimeout(animationRef.current);
+      }
+    };
+  }, [activeTab]);
 
-    let ctx: gsap.Context;
-
-    const timeoutId = setTimeout(() => {
-      ctx = gsap.context(() => {
-        if (!sectionRef.current || !trackRef.current) return;
-
-        const getScrollAmount = () =>
-          trackRef.current!.scrollWidth - window.innerWidth;
-
-        gsap.to(trackRef.current, {
-          x: () => -getScrollAmount(),
-          ease: "none",
+  useEffect(() => {
+    if (!sectionRef.current) return;
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        sectionRef.current,
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1,
+          ease: "power3.out",
           scrollTrigger: {
             trigger: sectionRef.current,
-            start: "top top",
-            end: () => `+=${getScrollAmount()}`,
-            scrub: 0.6,
-            pin: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
+            start: "top 80%",
+            toggleActions: "play none none reverse",
           },
-        });
-      }, sectionRef);
-    }, 1200);
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (ctx) ctx.revert();
-    };
+        }
+      );
+    }, sectionRef);
+    return () => ctx.revert();
   }, []);
 
+  const activeColor = cards[activeTab].color;
+
   return (
-    <section ref={sectionRef} className="relative overflow-hidden" style={{ background: "#000" }}>
-      <div className="pt-24 px-6 lg:px-10 max-w-6xl mx-auto">
-        <div className="mb-16">
+    <section ref={sectionRef} className="relative py-32" style={{ background: "#000" }}>
+      <style>{`
+        @keyframes radar-sweep {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes scanner-line {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(480px); }
+        }
+      `}</style>
+      
+      <div className="max-w-6xl mx-auto px-6 lg:px-10">
+        {/* Header */}
+        <div className="mb-20">
           <span className="section-label block mb-4">WEAPONS CACHE</span>
           <h2 style={{ fontSize: "clamp(36px, 4vw, 52px)", fontWeight: 400, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
             The Arsenal That<br />
             <span className="text-gradient">Arms The Fleet</span>
           </h2>
         </div>
-      </div>
 
-      {/* FIX: removed pr-24 and the 80px spacer. pr-10 gives a small 40px breath without dead scroll. */}
-      <div ref={trackRef} className="flex gap-6 pl-6 lg:pl-10 pr-10" style={{ width: "max-content" }}>
-        {cards.map((card) => (
-          <div
-            key={card.num}
-            className="flex-shrink-0 relative overflow-hidden"
-            style={{
-              width: "min(70vw, 820px)",
-              height: 480,
-              borderRadius: 16,
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              padding: 48,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              transition: "border-color 0.4s ease",
-              cursor: "none",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = `${card.color}30`;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.07)";
-            }}
-          >
-            {/* Top accent line */}
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${card.color}50, transparent)` }} />
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
+          
+          {/* Left Column: Interactive Cards Tabs */}
+          <div className="lg:col-span-5 flex flex-col gap-4">
+            {cards.map((card, idx) => {
+              const isActive = activeTab === idx;
+              return (
+                <button
+                  key={card.num}
+                  onClick={() => setActiveTab(idx)}
+                  className="w-full text-left relative overflow-hidden transition-all duration-500"
+                  style={{
+                    borderRadius: 16,
+                    background: isActive ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+                    border: isActive ? `1px solid ${card.color}50` : "1px solid rgba(255,255,255,0.06)",
+                    padding: "32px",
+                    boxShadow: isActive ? `0 0 30px -10px ${card.color}25` : "none",
+                    cursor: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                  }}
+                >
+                  {/* Top accent line */}
+                  {isActive && (
+                    <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${card.color}, transparent)` }} />
+                  )}
 
-            <div>
-              <div className="flex items-start justify-between mb-8">
-                <span className="section-label" style={{ color: card.color, letterSpacing: "0.15em" }}>{card.num} // {card.category}</span>
-                <div className="text-right">
-                  <div style={{ fontSize: 28, fontWeight: 300, color: card.color }}>{card.stat.value}</div>
-                  <div className="section-label" style={{ color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{card.stat.label}</div>
-                </div>
-              </div>
-              <h3 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 400, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1, marginBottom: 20 }}>
-                {card.title}
-              </h3>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 16, fontWeight: 300, lineHeight: 1.7, maxWidth: 480 }}>
-                {card.desc}
-              </p>
-            </div>
-
-            {/* Bottom background glow */}
-            <div
-              className="absolute bottom-0 right-0 w-64 h-64 rounded-full pointer-events-none"
-              style={{
-                background: card.color,
-                filter: "blur(100px)",
-                opacity: 0.06,
-                transform: "translate(30%, 30%)",
-              }}
-            />
+                  <div className="flex items-start justify-between mb-4">
+                    <span className="section-label" style={{ color: card.color, letterSpacing: "0.15em", fontSize: 9 }}>
+                      {card.num} // {card.category}
+                    </span>
+                  </div>
+                  
+                  <h3 style={{ fontSize: 20, fontWeight: 400, color: "#fff", letterSpacing: "-0.01em", marginBottom: 10 }}>
+                    {card.title}
+                  </h3>
+                  
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: 300, lineHeight: 1.6, marginBottom: 20 }}>
+                    {card.desc}
+                  </p>
+                  
+                  <div className="flex items-center gap-6 pt-4 border-t border-white/[0.04]">
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 300, color: card.color }}>{card.stat.value}</div>
+                      <div className="section-label" style={{ color: "rgba(255,255,255,0.3)", fontSize: 8, marginTop: 1 }}>{card.stat.label}</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        ))}
+
+          {/* Right Column: Holographic Terminal Screen */}
+          <div className="lg:col-span-7 flex flex-col">
+            <div 
+              className="relative flex-grow flex flex-col overflow-hidden"
+              style={{
+                borderRadius: 16,
+                background: "rgba(5, 5, 5, 0.7)",
+                border: `1px solid ${activeColor}20`,
+                boxShadow: `0 0 40px -15px ${activeColor}15, inset 0 0 20px rgba(0,0,0,0.8)`,
+                backdropFilter: "blur(20px)",
+                minHeight: 450,
+              }}
+            >
+              {/* Terminal Title Bar */}
+              <div 
+                className="flex items-center justify-between px-6 py-4 border-b"
+                style={{
+                  borderColor: "rgba(255,255,255,0.05)",
+                  background: "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#EF4444", opacity: 0.7 }} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#F59E0B", opacity: 0.7 }} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#10B981", opacity: 0.7 }} />
+                  <span className="font-mono text-[10px] ml-2 text-white/30 tracking-[0.1em]">AEGIS_SECURE_SHELL v2.4.1</span>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startAnimation(activeTab);
+                  }}
+                  className="px-3 py-1 rounded border text-[9px] font-mono tracking-wider transition-all duration-300"
+                  style={{
+                    borderColor: `${activeColor}30`,
+                    color: activeColor,
+                    background: "transparent",
+                    cursor: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = `${activeColor}15`;
+                    e.currentTarget.style.borderColor = activeColor;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.borderColor = `${activeColor}30`;
+                  }}
+                >
+                  RE-RUN RAID
+                </button>
+              </div>
+
+              {/* Terminal Screen Body */}
+              <div className="relative p-8 flex-grow overflow-hidden bg-scanlines select-none">
+                
+                {/* Vignette Shadow Overlay */}
+                <div className="absolute inset-0 bg-vignette pointer-events-none" />
+
+                {/* CRT Scanline Horizontal Sweep Line */}
+                <div 
+                  className="absolute left-0 right-0 h-px pointer-events-none" 
+                  style={{
+                    background: `linear-gradient(90deg, transparent, ${activeColor}20, transparent)`,
+                    boxShadow: `0 0 10px ${activeColor}15`,
+                    top: 0,
+                    animation: "scanner-line 5s linear infinite"
+                  }}
+                />
+
+                {/* Radar Scope Ambient Graphic */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full border border-white/[0.02] pointer-events-none flex items-center justify-center">
+                  <div className="w-48 h-48 rounded-full border border-white/[0.015] flex items-center justify-center animate-pulse">
+                    <div className="w-32 h-32 rounded-full border border-white/[0.01]" />
+                  </div>
+                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-px bg-white/[0.015]" />
+                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-white/[0.015]" />
+                  <div 
+                    className="absolute inset-0 rounded-full" 
+                    style={{
+                      background: `conic-gradient(from 0deg, ${activeColor}00 60%, ${activeColor}08)`,
+                      animation: "radar-sweep 5s linear infinite"
+                    }}
+                  />
+                </div>
+
+                {/* Simulated Content */}
+                <div className="relative z-10 font-mono text-xs md:text-sm">
+                  
+                  {/* Console Command Input */}
+                  <div style={{ color: "rgba(255,255,255,0.4)" }} className="mb-4 flex items-center gap-2">
+                    <span style={{ color: "#00FF94" }}>aegis-deck@ship</span>
+                    <span style={{ color: "rgba(255,255,255,0.2)" }}>:</span>
+                    <span style={{ color: "#8B5CF6" }}>~/weapons</span>
+                    <span style={{ color: "rgba(255,255,255,0.2)" }}>$</span>
+                    <span style={{ color: "#fff" }}>{typedCommand}</span>
+                    {isTyping && <span className="terminal-cursor" style={{ background: activeColor, width: 6, height: 14, display: "inline-block", animation: "blink 1s step-end infinite" }} />}
+                  </div>
+
+                  {/* Logs output list */}
+                  <div className="flex flex-col gap-2">
+                    {displayedLogs.map((log, index) => {
+                      let color = "rgba(255,255,255,0.65)";
+                      if (log.startsWith("[SUCCESS]") || log.startsWith("[RECOVERY]") || log.includes("OK")) {
+                        color = "#00FF94";
+                      } else if (log.startsWith("[RAID]") || log.startsWith("[AI]") || log.startsWith("[OPS]")) {
+                        color = activeColor;
+                      } else if (log.includes("CRITICAL") || log.includes("culprit") || log.includes("Revert") || log.includes("rollback")) {
+                        color = "#EF4444";
+                      } else if (log.startsWith("+") || log.startsWith("|")) {
+                        color = "rgba(255,255,255,0.25)";
+                      }
+
+                      return (
+                        <div key={index} style={{ color, whiteSpace: "pre-wrap" }} className="leading-relaxed font-mono">
+                          {log}
+                        </div>
+                      );
+                    })}
+
+                    {/* Blinking block cursor at end of output logs */}
+                    {!isTyping && displayedLogs.length < consoleData[activeTab].logs.length && (
+                      <span className="terminal-cursor mt-1" style={{ background: activeColor, width: 6, height: 14, display: "inline-block", animation: "blink 1s step-end infinite" }} />
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
   );
-
 }
 
 /* ─── STATS MARQUEE ─── */

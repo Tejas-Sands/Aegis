@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router'
 import { AnimatePresence } from 'framer-motion'
 import { PageTransition } from './components/PageTransition'
@@ -14,10 +14,20 @@ import NotFound from './pages/NotFound'
 import LoadingScreen from './components/LoadingScreen'
 import Cursor from './components/Cursor'
 import ScrollProgress from './components/ScrollProgress'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 export default function App() {
   const [loaded, setLoaded] = useState(false)
   const location = useLocation()
+
+  useEffect(() => {
+    if (loaded) {
+      const timer = setTimeout(() => {
+        ScrollTrigger.refresh()
+      }, 900) // Wait for the 0.8s CSS opacity transition to complete
+      return () => clearTimeout(timer)
+    }
+  }, [loaded])
 
   return (
     <>

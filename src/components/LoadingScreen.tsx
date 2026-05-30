@@ -84,7 +84,9 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           const elapsed = Date.now() - startTime;
           const remaining = Math.max(0, minDuration - elapsed);
           setTimeout(() => {
+            (window as any).aegisLoaded = true;
             onComplete();
+            window.dispatchEvent(new Event("aegis-loaded"));
           }, remaining);
         }
       });
