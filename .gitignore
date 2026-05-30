@@ -44,6 +44,3 @@ coverage/
 # Bundled Binaries
 bin/
 
-# Serverless bundled artifact
-api/boot.js
-
