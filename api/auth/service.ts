@@ -5,17 +5,26 @@ import { findUserByUnionId, upsertUser } from "../_queries/users";
 import { Errors } from "../../contracts/errors";
 import { Session } from "../../contracts/constants";
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-  },
-  realtime: {
-    transport: ws as any,
-  },
-});
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase environment variables (SUPABASE_URL and/or SUPABASE_ANON_KEY) are missing!");
+    }
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+      },
+      realtime: {
+        transport: ws as any,
+      },
+    });
+  }
+  return supabaseInstance;
+}
 
 export async function authenticateRequest(headers: Headers) {
   const cookies = cookie.parse(headers.get("cookie") || "");
@@ -26,7 +35,8 @@ export async function authenticateRequest(headers: Headers) {
   }
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const supabaseClient = getSupabaseClient();
+    const { data: { user }, error } = await supabaseClient.auth.getUser(token);
     if (error || !user) {
       console.warn("[auth] Supabase token verification failed:", error);
       throw Errors.forbidden("Invalid authentication token.");
