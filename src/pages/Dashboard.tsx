@@ -37,6 +37,7 @@ export default function Dashboard() {
   const { data: activities } = trpc.activity.recent.useQuery({ limit: 10 });
   const { data: incidentsData } = trpc.incident.list.useQuery({ limit: 5 });
   const { data: coralStatus } = trpc.ai.checkCoralStatus.useQuery();
+  const { data: coralSources } = trpc.ai.coralSources.useQuery();
 
   const seedMutation = trpc.incident.seed.useMutation({
     onSuccess: () => {
@@ -55,6 +56,15 @@ export default function Dashboard() {
   const [queryResult, setQueryResult] = useState<any[] | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [isMockResult, setIsMockResult] = useState(false);
+  const [executionMeta, setExecutionMeta] = useState<{
+    engine: string;
+    coralVersion: string;
+    executionTimeMs: number;
+    sourcesQueried: string[];
+    totalRows: number;
+    command: string;
+    dataMode: string;
+  } | null>(null);
 
   const generateQuery = trpc.ai.generateQuery.useMutation({
     onSuccess: (data) => {
@@ -75,8 +85,10 @@ export default function Dashboard() {
       if (data.success) {
         setQueryResult(data.data ?? []);
         setIsMockResult(data.isMock);
+        setExecutionMeta(data.executionMeta ?? null);
       } else {
         setQueryError(data.error ?? "Unknown execution error");
+        setExecutionMeta(data.executionMeta ?? null);
       }
     },
     onError: (err) => {
@@ -184,21 +196,69 @@ export default function Dashboard() {
 
         {/* Data Sources Status */}
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          {/* Connected Sources */}
-          <Card className="bg-[#131318] border-[#F0F0F2]/10 lg:col-span-1">
+          {/* Coral SQL Federation Panel */}
+          <Card className="bg-[#131318] border-[#00F0FF]/20 lg:col-span-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-mono text-[#8A8A93] flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-[#FFB800]" />
-                  DATA_SOURCES
+                  <Zap className="w-4 h-4 text-[#00F0FF]" />
+                  CORAL_SQL_FEDERATION
                 </span>
-                <span className="text-[10px] bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/20 px-1.5 py-0.5 rounded font-normal">
-                  {coralStatus?.installed ? "CORAL ACTIVE" : "CORAL LOCAL"}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-normal border ${
+                  coralStatus?.installed
+                    ? "bg-[#00FF94]/10 text-[#00FF94] border-[#00FF94]/20"
+                    : "bg-[#FFB800]/10 text-[#FFB800] border-[#FFB800]/20"
+                }`}>
+                  {coralStatus?.installed ? "✓ ENGINE ACTIVE" : "⚠ MOCK MODE"}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {sourcesData?.map((source) => (
+              {/* Coral Version */}
+              {coralSources && (
+                <div className="p-2 rounded bg-[#0A0A0C] border border-[#00F0FF]/10 mb-3">
+                  <div className="text-[10px] font-mono text-[#00F0FF] mb-1">CORAL_ENGINE</div>
+                  <div className="text-xs font-mono text-[#F0F0F2]">{coralSources.version}</div>
+                  <div className="text-[10px] font-mono text-[#8A8A93] mt-1">
+                    Backend: Local JSONL Files (Zero Egress)
+                  </div>
+                </div>
+              )}
+
+              {/* Source Table List */}
+              {coralSources?.sources.map((source) => (
+                <div
+                  key={source.name}
+                  className="flex items-center justify-between py-2 px-3 rounded-md bg-[#0A0A0C] border border-[#F0F0F2]/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <SourceIcon name={
+                      source.name === "pagerduty" ? "bell" :
+                      source.name === "datadog" ? "activity" :
+                      source.name === "github" ? "github" :
+                      source.name === "sentry" ? "bug" :
+                      source.name === "slack" ? "message-square" : "activity"
+                    } />
+                    <div>
+                      <span className="text-sm font-mono text-[#F0F0F2]">{source.table}</span>
+                      <div className="text-[10px] font-mono text-[#8A8A93]">{source.backend}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#00FF94]" />
+                    <span className="text-xs font-mono text-[#8A8A93]">
+                      {source.rows} rows
+                    </span>
+                  </div>
+                </div>
+              )) ?? (
+                <div className="text-sm text-[#8A8A93] font-mono">
+                  Scanning the seas...
+                </div>
+              )}
+
+              {/* Non-Coral data sources fallback */}
+              {!coralSources?.installed && sourcesData?.map((source) => (
                 <div
                   key={source.id}
                   className="flex items-center justify-between py-2 px-3 rounded-md bg-[#0A0A0C] border border-[#F0F0F2]/5"
@@ -208,25 +268,14 @@ export default function Dashboard() {
                     <span className="text-sm font-mono">{source.displayName}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        source.status === "connected"
-                          ? "bg-[#00FF94]"
-                          : source.status === "syncing"
-                          ? "bg-[#FFB800] animate-pulse"
-                          : "bg-red-500"
-                      }`}
-                    />
-                    <span className="text-xs font-mono text-[#8A8A93] capitalize">
-                      {source.status}
-                    </span>
+                    <span className={`w-2 h-2 rounded-full ${
+                      source.status === "connected" ? "bg-[#00FF94]" :
+                      source.status === "syncing" ? "bg-[#FFB800] animate-pulse" : "bg-red-500"
+                    }`} />
+                    <span className="text-xs font-mono text-[#8A8A93] capitalize">{source.status}</span>
                   </div>
                 </div>
-              )) ?? (
-                <div className="text-sm text-[#8A8A93] font-mono">
-                  Scanning the seas...
-                </div>
-              )}
+              ))}
             </CardContent>
           </Card>
 
@@ -301,17 +350,65 @@ export default function Dashboard() {
                     </div>
                   )}
 
+                  {/* Coral Execution Metadata */}
+                  {executionMeta && (
+                    <div className="bg-[#0A0A0C] border border-[#00F0FF]/15 rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Zap className="w-3 h-3 text-[#00F0FF]" />
+                        <span className="text-[10px] font-mono text-[#00F0FF] tracking-wider">CORAL_EXECUTION_LOG</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <div className="text-[9px] font-mono text-[#8A8A93]">ENGINE</div>
+                          <div className="text-[11px] font-mono text-[#F0F0F2]">{executionMeta.engine}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-mono text-[#8A8A93]">VERSION</div>
+                          <div className="text-[11px] font-mono text-[#F0F0F2]">{executionMeta.coralVersion}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-mono text-[#8A8A93]">EXEC TIME</div>
+                          <div className="text-[11px] font-mono text-[#00FF94]">{executionMeta.executionTimeMs}ms</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-mono text-[#8A8A93]">DATA MODE</div>
+                          <div className="text-[11px] font-mono text-[#F0F0F2]">{executionMeta.dataMode}</div>
+                        </div>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-[#F0F0F2]/5">
+                        <div className="text-[9px] font-mono text-[#8A8A93] mb-1">SOURCES QUERIED</div>
+                        <div className="flex flex-wrap gap-1">
+                          {executionMeta.sourcesQueried.map((s) => (
+                            <span key={s} className="text-[9px] font-mono bg-[#00F0FF]/10 text-[#00F0FF] px-1.5 py-0.5 rounded border border-[#00F0FF]/20">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {executionMeta.command && (
+                        <div className="mt-2 pt-2 border-t border-[#F0F0F2]/5">
+                          <div className="text-[9px] font-mono text-[#8A8A93] mb-1">CLI COMMAND</div>
+                          <pre className="text-[10px] font-mono text-[#FFB800]/70 overflow-x-auto whitespace-pre-wrap break-all">
+                            {executionMeta.command}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {queryResult && (
                     <div className="bg-[#0A0A0C] border border-[#F0F0F2]/10 rounded-md p-3 overflow-hidden">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-[10px] font-mono text-[#8A8A93]">
                           QUERY_RESULT ({queryResult.length} rows)
                         </span>
-                        {isMockResult && (
-                          <span className="text-[9px] font-mono bg-[#FFB800]/10 text-[#FFB800] px-1.5 py-0.5 rounded border border-[#FFB800]/20">
-                            LOCAL SIMULATION (Coral CLI not installed)
-                          </span>
-                        )}
+                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                          isMockResult
+                            ? "bg-[#FFB800]/10 text-[#FFB800] border-[#FFB800]/20"
+                            : "bg-[#00FF94]/10 text-[#00FF94] border-[#00FF94]/20"
+                        }`}>
+                          {isMockResult ? "MOCK FALLBACK" : "✓ CORAL CLI"}
+                        </span>
                       </div>
                       <div className="overflow-x-auto text-[11px] font-mono text-[#F0F0F2] max-h-60 overflow-y-auto scrollbar-thin">
                         <table className="min-w-full divide-y divide-[#F0F0F2]/10">

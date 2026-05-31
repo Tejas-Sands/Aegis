@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { generateSQLFromNL, askAIQuestion } from "./lib/ai";
-import { executeCoralQuery, isCoralInstalled } from "./lib/coral";
+import { executeCoralQuery, isCoralInstalled, listCoralSources } from "./lib/coral";
 import { createActivityLog } from "./_queries/activity";
 
 export const aiRouter = createRouter({
@@ -36,6 +36,10 @@ export const aiRouter = createRouter({
     return {
       installed: await isCoralInstalled(),
     };
+  }),
+
+  coralSources: publicQuery.query(async () => {
+    return listCoralSources();
   }),
 
   ask: publicQuery

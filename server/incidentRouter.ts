@@ -81,7 +81,7 @@ export const incidentRouter = createRouter({
   }),
 
   seed: publicQuery.mutation(async () => {
-    const mockData = generateMockIncidents(12);
+    const mockData = generateMockIncidents(8);
     const created = [];
     for (const data of mockData) {
       const incident = await createIncident({
