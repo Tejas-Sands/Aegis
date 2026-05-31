@@ -10,6 +10,7 @@ import {
 import { createActivityLog } from "./_queries/activity";
 import { seedDataSources } from "./_queries/dataSources";
 import { generateMockIncidents } from "./lib/mockData";
+import { sendSlackResolutionMessage } from "./lib/slack";
 
 export const incidentRouter = createRouter({
   list: publicQuery
@@ -73,6 +74,11 @@ export const incidentRouter = createRouter({
           newStatus: input.status,
         },
       });
+
+      if (incident && input.status === "resolved") {
+        sendSlackResolutionMessage(incident).catch(console.error);
+      }
+
       return incident;
     }),
 

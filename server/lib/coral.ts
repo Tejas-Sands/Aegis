@@ -260,23 +260,36 @@ async function onboardCoralSources(coralCmd: string): Promise<void> {
   if (!fs.existsSync(DATA_ROOT)) fs.mkdirSync(DATA_ROOT, { recursive: true });
   if (!fs.existsSync(SOURCES_ROOT)) fs.mkdirSync(SOURCES_ROOT, { recursive: true });
 
+  // Map Aegis environment keys to the names expected by the Coral CLI binary
+  if (process.env.DATADOG_API_KEY && !process.env.DD_API_KEY) {
+    process.env.DD_API_KEY = process.env.DATADOG_API_KEY;
+  }
+  if (process.env.DATADOG_APP_KEY && !process.env.DD_APPLICATION_KEY) {
+    process.env.DD_APPLICATION_KEY = process.env.DATADOG_APP_KEY;
+  }
+  if (process.env.PAGERDUTY_TOKEN && !process.env.PAGERDUTY_API_TOKEN) {
+    process.env.PAGERDUTY_API_TOKEN = process.env.PAGERDUTY_TOKEN;
+  }
+
   const integrations = [
-    { name: "github", envKey: "GITHUB_TOKEN", tableName: "commits" },
-    { name: "sentry", envKey: "SENTRY_TOKEN", tableName: "issues" },
-    { name: "datadog", envKey: "DATADOG_API_KEY", tableName: "metrics" },
-    { name: "pagerduty", envKey: "PAGERDUTY_TOKEN", tableName: "incidents" },
-    { name: "slack", envKey: "SLACK_TOKEN", tableName: "messages" }
+    { name: "github", checkKeys: ["GITHUB_TOKEN"], tableName: "commits" },
+    { name: "sentry", checkKeys: ["SENTRY_TOKEN", "SENTRY_ORG"], tableName: "issues" },
+    { name: "datadog", checkKeys: ["DD_API_KEY", "DD_APPLICATION_KEY"], tableName: "metrics" },
+    { name: "pagerduty", checkKeys: ["PAGERDUTY_API_TOKEN"], tableName: "incidents" },
+    { name: "slack", checkKeys: ["SLACK_TOKEN"], tableName: "messages" }
   ];
 
   for (const integration of integrations) {
-    const hasKey = process.env[integration.envKey] && process.env[integration.envKey].trim() !== "";
+    const hasKeys = integration.checkKeys.every(
+      (key) => process.env[key] && process.env[key].trim() !== ""
+    );
     
     try {
-      if (hasKey) {
-        console.log(`[Coral Bridge] Key found for ${integration.name}. Onboarding live API source...`);
+      if (hasKeys) {
+        console.log(`[Coral Bridge] Keys found for ${integration.name}. Onboarding live API source...`);
         await execAsync(`${coralCmd} source add ${integration.name}`);
       } else {
-        console.log(`[Coral Bridge] No key found for ${integration.name}. Registering local file fallback...`);
+        console.log(`[Coral Bridge] Missing keys for ${integration.name}. Registering local file fallback...`);
 
         // Write the data folder and JSONL file
         const dataDir = path.join(DATA_ROOT, integration.name);

@@ -8,6 +8,7 @@ import {
 import { createActivityLog } from "./_queries/activity";
 import { analyzeIncidentWithAI } from "./lib/ai";
 import { generateCorrelatedData } from "./lib/mockData";
+import { sendSlackAnalysisMessage } from "./lib/slack";
 
 export const analysisRouter = createRouter({
   getByIncidentId: publicQuery
@@ -61,6 +62,9 @@ export const analysisRouter = createRouter({
           confidence: aiResult.confidence,
         },
       });
+
+      // Post AI Analysis to Slack asynchronously
+      sendSlackAnalysisMessage(incident, analysis).catch(console.error);
 
       return analysis;
     }),
